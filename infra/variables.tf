@@ -15,3 +15,13 @@ variable "vnet_cidr" {
   type        = string
   default     = "10.20.0.0/16"
 }
+
+variable "admin_ip_cidr" {
+  description = "Home public IP allowed to SSH to the jump box, in CIDR form (x.x.x.x/32)"
+  type        = string
+
+  validation {
+    condition     = can(cidrhost(var.admin_ip_cidr, 0))
+    error_message = "admin_ip_cidr must be a valid CIDR block, for example 203.0.113.10/32."
+  }
+}
