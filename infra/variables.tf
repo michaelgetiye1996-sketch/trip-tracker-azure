@@ -25,3 +25,13 @@ variable "admin_ip_cidr" {
     error_message = "admin_ip_cidr must be a valid CIDR block, for example 203.0.113.10/32."
   }
 }
+
+variable "admin_object_id" {
+  description = "Entra ID object ID of the human admin who manages Key Vault secrets"
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", var.admin_object_id))
+    error_message = "admin_object_id must be a GUID, e.g. 00000000-0000-0000-0000-000000000000."
+  }
+}
