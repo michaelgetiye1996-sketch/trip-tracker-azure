@@ -1,7 +1,7 @@
 # Jump box: SSH only from the admin's home IP. The internet is denied by the default DenyAllInBound rule.
 resource "azurerm_network_security_group" "jumpbox" {
   name                = "nsg-jumpbox"
-  location            = azurerm_resource_group.main.location
+  location            = var.workload_location
   resource_group_name = azurerm_resource_group.main.name
   tags                = local.tags
 
@@ -21,7 +21,7 @@ resource "azurerm_network_security_group" "jumpbox" {
 # Database: PostgreSQL only from AKS and the jump box. The explicit deny overrides the default AllowVnetInBound.
 resource "azurerm_network_security_group" "db" {
   name                = "nsg-db"
-  location            = azurerm_resource_group.main.location
+  location            = var.workload_location
   resource_group_name = azurerm_resource_group.main.name
   tags                = local.tags
 

@@ -1,6 +1,6 @@
 resource "azurerm_virtual_network" "main" {
   name                = "vnet-${var.project}"
-  location            = azurerm_resource_group.main.location
+  location            = var.workload_location
   resource_group_name = azurerm_resource_group.main.name
   address_space       = [var.vnet_cidr]
   tags                = local.tags
@@ -20,6 +20,7 @@ resource "azurerm_subnet" "db" {
   virtual_network_name            = azurerm_virtual_network.main.name
   address_prefixes                = [cidrsubnet(var.vnet_cidr, 8, 4)]
   default_outbound_access_enabled = false
+  service_endpoints               = ["Microsoft.Storage"]
 
   delegation {
     name = "postgres-flexible"
