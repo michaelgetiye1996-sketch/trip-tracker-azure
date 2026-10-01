@@ -35,3 +35,19 @@ variable "admin_object_id" {
     error_message = "admin_object_id must be a GUID, e.g. 00000000-0000-0000-0000-000000000000."
   }
 }
+
+variable "admin_ssh_public_key" {
+  description = "SSH public key (ed25519) for the jump box admin user"
+  type        = string
+
+  validation {
+    condition     = startswith(var.admin_ssh_public_key, "ssh-ed25519 ")
+    error_message = "admin_ssh_public_key must be an ed25519 public key starting with 'ssh-ed25519 '."
+  }
+}
+
+variable "workload_location" {
+  description = "Region for the network, database, jump box, and AKS (East US PostgreSQL capacity is restricted)"
+  type        = string
+  default     = "eastus2"
+}
