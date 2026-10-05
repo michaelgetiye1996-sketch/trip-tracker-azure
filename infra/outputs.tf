@@ -10,3 +10,8 @@ output "postgres_fqdn" {
 output "jumpbox_public_ip" {
   value = azurerm_public_ip.jumpbox.ip_address
 }
+
+output "acr_login_server" {
+  description = "ACR login server used in image names (e.g. <server>/trip-tracker:tag)"
+  value       = azurerm_container_registry.main.login_server
+}
