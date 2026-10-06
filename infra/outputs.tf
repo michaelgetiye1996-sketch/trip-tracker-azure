@@ -15,3 +15,12 @@ output "acr_login_server" {
   description = "ACR login server used in image names (e.g. <server>/trip-tracker:tag)"
   value       = azurerm_container_registry.main.login_server
 }
+
+output "aks_name" {
+  value = azurerm_kubernetes_cluster.main.name
+}
+
+output "aks_oidc_issuer_url" {
+  description = "Used in S5 for workload identity federation"
+  value       = azurerm_kubernetes_cluster.main.oidc_issuer_url
+}
