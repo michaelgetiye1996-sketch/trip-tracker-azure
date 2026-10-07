@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trip-tracker
+  namespace: trip-tracker
+  labels:
+    app: trip-tracker
+spec:
+  replicas: 2                     # two pods: one can restart while the other serves traffic
+  selector:
+    matchLabels:
+      app: trip-tracker
+  template:
+    metadata:
+      labels:
+        app: trip-tracker
+        azure.workload.identity/use: "true"   # tells the webhook to inject the Entra ID token
+    spec:
+      serviceAccountName: trip-tracker        # must match the federated credential subject
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001                      # same UID as the Dockerfile
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: acrtriptrackery4ed2m.azurecr.io/trip-tracker:v1
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+
+            - configMapRef:
+                name: trip-tracker-config     # DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_SSLMODE
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: trip-tracker-db       # synced from Key Vault by the CSI driver
+                  key: DB_PASSWORD
+          readinessProbe:                     # no traffic until the database answers
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:                      # restart only if the process itself hangs
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+
+            - name: kv-secrets
+              mountPath: /mnt/secrets
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: kv-secrets
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: trip-tracker-kv
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,15 @@
+# Namespace: a separate "room" in the cluster for the app
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trip-tracker
+---
+# Service account the pods run as. The annotation links it to the Entra ID app identity.
+# Name + namespace must match the federated credential subject exactly.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: trip-tracker
+  namespace: trip-tracker
+  annotations:
+    azure.workload.identity/client-id: "c8c8418d-611c-430e-acb2-304d7e42f59b"

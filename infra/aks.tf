@@ -48,6 +48,11 @@ resource "azurerm_kubernetes_cluster" "main" {
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
 
+  # Secrets Store CSI driver: mounts Key Vault secrets into pods (authenticates with workload identity)
+  key_vault_secrets_provider {
+    secret_rotation_enabled = false
+  }
+
   # Container Insights agent on the nodes; authenticates with managed identity (no workspace key)
   oms_agent {
     log_analytics_workspace_id      = azurerm_log_analytics_workspace.main.id
