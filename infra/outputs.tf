@@ -24,3 +24,21 @@ output "aks_oidc_issuer_url" {
   description = "Used in S5 for workload identity federation"
   value       = azurerm_kubernetes_cluster.main.oidc_issuer_url
 }
+
+output "app_url" {
+  description = "Public URL of the trip-tracker app"
+  value       = "http://${azurerm_public_ip.app.fqdn}"
+}
+
+output "app_public_ip_name" {
+  value = azurerm_public_ip.app.name
+}
+
+output "app_identity_client_id" {
+  description = "Client ID used in the service account annotation and SecretProviderClass"
+  value       = azurerm_user_assigned_identity.app.client_id
+}
+
+output "tenant_id" {
+  value = data.azurerm_client_config.current.tenant_id
+}
