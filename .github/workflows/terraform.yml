@@ -1,0 +1,88 @@
+name: terraform
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["infra/**", ".github/workflows/terraform.yml"]
+  push:
+    branches: [main]
+    paths: ["infra/**", ".github/workflows/terraform.yml"]
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write        # lets the job request GitHub's OIDC token
+  contents: read
+  pull-requests: write   # lets the plan job comment on the PR
+
+concurrency:             # never run two Terraform jobs against the same state at once
+  group: terraform-state
+  cancel-in-progress: false
+
+env:
+  # Azure login via OIDC - the azurerm provider and backend read these directly
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC: "true"
+  # Input variables (GitHub uppercased the secret names; Terraform needs lowercase)
+  TF_VAR_admin_ip_cidr: ${{ secrets.TF_VAR_ADMIN_IP_CIDR }}
+  TF_VAR_admin_object_id: ${{ secrets.TF_VAR_ADMIN_OBJECT_ID }}
+  TF_VAR_admin_ssh_public_key: ${{ secrets.TF_VAR_ADMIN_SSH_PUBLIC_KEY }}
+  TF_IN_AUTOMATION: "true"
+
+defaults:
+  run:
+    working-directory: infra
+
+jobs:
+  plan:
+    name: plan (pull request)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - name: Format check
+        run: terraform fmt -check -recursive
+      - name: Init
+        run: terraform init -input=false
+      - name: Validate
+        run: terraform validate
+      - name: Plan
+        run: |
+          terraform plan -input=false -lock-timeout=5m -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+      - name: Post plan as PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let plan = fs.readFileSync('infra/plan.txt', 'utf8');
+            // hide the subscription ID and home IP before posting in a public repo
+            for (const s of [process.env.ARM_SUBSCRIPTION_ID, process.env.TF_VAR_admin_ip_cidr]) {
+              if (s) plan = plan.split(s).join('***');
+            }
+            if (plan.length > 60000) plan = plan.slice(0, 60000) + '\n... (truncated)';
+            const summary = (plan.match(/Plan: .*|No changes\..*/) || ['(see log)'])[0];
+            const body = `### Terraform plan: ${summary}\n<details><summary>Show full plan</summary>\n\n\`\`\`\n${plan}\n\`\`\`\n</details>\n\n_Run ${context.runId} by @${context.actor}_`;
+            await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+
+  apply:
+    name: apply (main)
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - name: Init
+        run: terraform init -input=false
+      - name: Plan
+        run: terraform plan -input=false -lock-timeout=5m -out=tfplan
+      - name: Apply
+        run: terraform apply -input=false -lock-timeout=5m tfplan
