@@ -1,16 +1,14 @@
+# Internal-only Service. Public traffic now enters through Traefik (Ingress), which owns the static IP.
 apiVersion: v1
 kind: Service
 metadata:
   name: trip-tracker
   namespace: trip-tracker
-  annotations:
-    service.beta.kubernetes.io/azure-pip-name: pip-trip-tracker-app           # our Terraform IP
-    service.beta.kubernetes.io/azure-load-balancer-resource-group: rg-trip-tracker
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: trip-tracker
   ports:
     - name: http
-      port: 80            # what the browser hits
-      targetPort: http    # container port 8000
+      port: 80
+      targetPort: http

@@ -1,0 +1,16 @@
+# Traefik ingress controller - the public entry point (HTTPS) for the cluster.
+# Takes over the Terraform-managed static IP from the app Service.
+service:
+  type: LoadBalancer
+  annotations:
+    service.beta.kubernetes.io/azure-pip-name: pip-trip-tracker-app
+    service.beta.kubernetes.io/azure-load-balancer-resource-group: rg-trip-tracker
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi

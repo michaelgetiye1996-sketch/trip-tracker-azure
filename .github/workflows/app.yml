@@ -23,7 +23,7 @@ env:
   RESOURCE_GROUP: rg-trip-tracker
   CLUSTER: aks-trip-tracker
   NAMESPACE: trip-tracker
-  APP_URL: http://trip-tracker-y4ed2m.eastus2.cloudapp.azure.com
+  APP_URL: https://trip-tracker-y4ed2m.eastus2.cloudapp.azure.com
 
 jobs:
   build:
