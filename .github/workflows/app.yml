@@ -1,0 +1,77 @@
+name: app
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/app.yml"]
+  push:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/app.yml"]
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:                 # one deploy at a time; never cancel a rollout halfway
+  group: app-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  ACR_NAME: acrtriptrackery4ed2m
+  IMAGE: acrtriptrackery4ed2m.azurecr.io/trip-tracker
+  RESOURCE_GROUP: rg-trip-tracker
+  CLUSTER: aks-trip-tracker
+  NAMESPACE: trip-tracker
+  APP_URL: http://trip-tracker-y4ed2m.eastus2.cloudapp.azure.com
+
+jobs:
+  build:
+    name: build + smoke test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build --platform linux/amd64 -t trip-tracker:ci app/
+      - name: Smoke test inside the image
+        run: |
+          docker run --rm -e DB_HOST=x -e DB_USER=x -e DB_PASSWORD=x --entrypoint python trip-tracker:ci \
+            -c "import os, main; assert os.getuid() == 10001, 'not non-root'; print('OK uid', os.getuid(), 'version', main.app.version)"
+
+  deploy:
+    name: push + deploy (main)
+    needs: build
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Build and push image tagged with the commit SHA
+        run: |
+          TAG="${GITHUB_SHA::7}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          az acr login -n "$ACR_NAME"
+          docker build --platform linux/amd64 -t "$IMAGE:$TAG" app/
+          docker push "$IMAGE:$TAG"
+      - name: Install kubectl + kubelogin
+        run: |
+          mkdir -p "$HOME/bin"
+          az aks install-cli --install-location "$HOME/bin/kubectl" --kubelogin-install-location "$HOME/bin/kubelogin"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+      - name: Connect to AKS (Entra ID via Azure CLI token)
+        run: |
+          az aks get-credentials -g "$RESOURCE_GROUP" -n "$CLUSTER" --overwrite-existing
+          kubelogin convert-kubeconfig -l azurecli
+      - name: Roll out the new image
+        run: |
+          kubectl -n "$NAMESPACE" set image deployment/trip-tracker app="$IMAGE:$TAG"
+          kubectl -n "$NAMESPACE" annotate deployment/trip-tracker --overwrite \
+            kubernetes.io/change-cause="image $TAG from GitHub Actions run $GITHUB_RUN_ID"
+          kubectl -n "$NAMESPACE" rollout status deployment/trip-tracker --timeout=180s
+      - name: Smoke test the public URL
+        run: curl -fsS --retry 6 --retry-delay 5 "$APP_URL/readyz"
