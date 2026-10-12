@@ -51,3 +51,8 @@ variable "workload_location" {
   type        = string
   default     = "eastus2"
 }
+
+variable "alert_email" {
+  description = "Email address that receives monitoring alerts"
+  type        = string
+}

@@ -28,6 +28,7 @@ env:
   TF_VAR_admin_ip_cidr: ${{ secrets.TF_VAR_ADMIN_IP_CIDR }}
   TF_VAR_admin_object_id: ${{ secrets.TF_VAR_ADMIN_OBJECT_ID }}
   TF_VAR_admin_ssh_public_key: ${{ secrets.TF_VAR_ADMIN_SSH_PUBLIC_KEY }}
+  TF_VAR_alert_email: ${{ secrets.TF_VAR_ALERT_EMAIL }}
   TF_IN_AUTOMATION: "true"
 
 defaults:
