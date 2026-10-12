@@ -25,6 +25,8 @@ pool = ConnectionPool(
     },
 )
 
+SCHEMA_LOCK_ID = 72711  # any fixed app-wide number
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS trips (
     id          SERIAL PRIMARY KEY,
@@ -42,13 +44,17 @@ CREATE TABLE IF NOT EXISTS trips (
 async def lifespan(app: FastAPI):
     # Fail fast: if the database is unreachable at startup, crash so Kubernetes restarts the pod
     pool.open(wait=True, timeout=30)
+    # v2: serialize schema creation across replicas. pg_advisory_xact_lock blocks until the
+    # other pod's transaction commits; the lock is released automatically at commit/rollback.
     with pool.connection() as conn:
-        conn.execute(SCHEMA)
+        with conn.transaction():
+            conn.execute("SELECT pg_advisory_xact_lock(%s)", (SCHEMA_LOCK_ID,))
+            conn.execute(SCHEMA)
     yield
     pool.close()
 
 
-app = FastAPI(title="Trip Tracker", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Trip Tracker", version="2.0.0", lifespan=lifespan)
 
 
 class TripIn(BaseModel):
@@ -119,7 +125,7 @@ input,button{padding:.5rem;font-size:1rem}
 li{margin:.4rem 0} small{color:#666}
 </style></head><body>
 <h1>Trip Tracker</h1>
-<p><small>FastAPI on AKS &middot; private Azure Database for PostgreSQL &middot; <a href="/docs">API docs</a></small></p>
+<p><small>v2 &middot; FastAPI on AKS &middot; private Azure Database for PostgreSQL &middot; <a href="/docs">API docs</a></small></p>
 <form id="f">
   <input name="destination" placeholder="Destination" required maxlength="100">
   <label>Start <input type="date" name="start_date" required></label>
