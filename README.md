@@ -2,7 +2,7 @@
 
 A small trip-planning web app, deployed on Microsoft Azure the way a cloud DevOps team would build it: **everything as code, every change through a pull request, and no stored secrets.**
 
-![Architecture](docs/architecture.png)
+![Architecture](architecture.png)
 
 > Built as my final project for MSIT 5660 – Advanced Cloud Computing (Fall 2026).
 
